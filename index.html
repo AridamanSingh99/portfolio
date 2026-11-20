@@ -14,31 +14,54 @@
       <div class="field" style="margin-top:1rem"><label for="field-subject">Subject</label><input required id="field-subject" name="subject" placeholder="What's this about?"/></div>
       <div class="field" style="margin-top:1rem"><label for="field-message">Message</label><textarea required id="field-message" name="message" rows="5" placeholder="Tell me about your project or idea..."></textarea></div>
       <button type="submit" class="send-btn" id="sendBtn">Send Message <i data-lucide="send"></i></button>
-      <p class="error-msg" id="errMsg" style="display:none"></p>
-    </form></section><footer><span>© Aridaman Singh</span><a href="#home">Back to top ↑</a></footer></main><dialog id="detail"><button class="close">Close ×</button><div id="detailBody"></div></dialog><script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js" defer></script><script>document.addEventListener('DOMContentLoaded',()=>{window.emailjs?.init({publicKey:"7NB8OKWZ6s_HIyf4O"});
-document.getElementById('contactForm').addEventListener('submit',async (e)=>{
-  e.preventDefault();
-  const f = e.currentTarget;
-  const data = new FormData(f);
-  const btn = document.getElementById('sendBtn');
-  const err = document.getElementById('errMsg');
-  err.style.display='none';
-  btn.disabled = true; btn.textContent = "Sending...";
-  try{
-    await emailjs.send("service_08ju93l","template_020g9oe",{
-      from_name:data.get('name'),from_email:data.get('email'),
-      subject:data.get('subject'),message:data.get('message')
-    });
-    btn.textContent = "✓ Message sent!";
-    f.reset();
-    setTimeout(()=>{btn.textContent="Send Message";btn.disabled=false;},4000);
-  }catch(ex){
-    console.error(ex);
-    err.textContent = "Couldn't send. Please try again or email directly.";
-    err.style.display='block';
-    btn.textContent = "Send Message"; btn.disabled = false;
-  }
+      <p id="errMsg" role="status" style="margin-top:.8rem"></p><a id="emailDraft" hidden style="text-decoration:underline">Open email draft</a>
+    </form></section><footer><span>© Aridaman Singh</span><a href="#home">Back to top ↑</a></footer></main><dialog id="detail"><button class="close">Close ×</button><div id="detailBody"></div></dialog><script>const contactForm = document.getElementById('contactForm');
+const sendButton = document.getElementById('sendBtn');
+const contactStatus = document.getElementById('errMsg');
+const draft = document.getElementById('emailDraft');
+
+function updateDraft() {
+  const fields = new FormData(contactForm);
+  const body = fields.get('message') + '\r\n\r\n' + fields.get('name') + '\r\n' + fields.get('email');
+  draft.href = 'mailto:aridamansingh992@gmail.com?subject=' + encodeURIComponent(fields.get('subject')) + '&body=' + encodeURIComponent(body);
+}
+contactForm.addEventListener('input', () => {
+  if (!draft.hidden) updateDraft();
 });
+contactForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (sendButton.disabled) return;
+  const fields = new FormData(contactForm);
+  sendButton.disabled = true;
+  sendButton.textContent = 'Sending…';
+  contactStatus.textContent = '';
+  draft.hidden = true;
+  try {
+    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        service_id: 'service_08ju93l',
+        template_id: 'template_020g9oe',
+        user_id: '7NB8OKWZ6s_HIyf4O',
+        template_params: {
+          from_name: fields.get('name'), from_email: fields.get('email'),
+          subject: fields.get('subject'), message: fields.get('message')
+        }
+      })
+    });
+    if (!response.ok) throw new Error('EmailJS HTTP ' + response.status);
+    contactStatus.textContent = 'Message sent. Thanks for getting in touch!';
+    contactForm.reset();
+  } catch (error) {
+    console.warn('Contact form delivery unconfirmed.', error.message);
+    contactStatus.textContent = 'Delivery could not be confirmed. Open the draft below to send this message from your email app.';
+    updateDraft();
+    draft.hidden = false;
+  } finally {
+    sendButton.disabled = false;
+    sendButton.textContent = 'Send Message';
+  }
 });
 const cards=[...document.querySelectorAll('.project')];
 document.querySelectorAll('[data-filter]').forEach(button=>button.onclick=()=>{document.querySelectorAll('[data-filter]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));cards.forEach(c=>c.hidden=button.dataset.filter!=='All'&&button.dataset.filter!==c.dataset.category)});
